@@ -1,4 +1,4 @@
-  import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search, MapPin, BriefcaseBusiness, GraduationCap, Building2,
   ArrowUpRight, IndianRupee, Menu, X, ShieldCheck, Users,
@@ -548,8 +548,8 @@ function App() {
 
           {filtered.length === 0 && <div className="empty">
             <Search size={28}/>
- </div>
-          )}
+ </div>}
+          
         </div>
       </div>
     </div>
