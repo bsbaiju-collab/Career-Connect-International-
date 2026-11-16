@@ -402,4 +402,119 @@ export default function App() {
             )}
             {field("Email address", "email", authForm.email, v => updateAuth("email", v), "email", true)}
             {field("Password", "password", authForm.password, v => updateAuth("password", v), "password", true)}
-            <button style={{ ...styles.button, width: "100%", marginTop: 5 }} disabled={
+            <button style={{ ...styles.button, width: "100%", marginTop: 5 }} disabled={busy} onClick={submitAuth}>
+              {busy ? "Please wait…" : authMode === "login" ? "Sign in" : "Create account"}
+            </button>
+            <p style={styles.muted}>
+              {authMode === "login" ? "New here? " : "Already registered? "}
+              <button style={{ ...styles.lightButton, padding: "5px 9px" }} onClick={() => setAuthMode(authMode === "login" ? "register" : "login")}>
+                {authMode === "login" ? "Create account" : "Sign in"}
+              </button>
+            </p>
+          </div>
+        </div>
+      )}
+
+      {selectedJob && (
+        <div style={overlayStyle} onClick={() => setSelectedJob(null)}>
+          <div style={modalStyle} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+              <h2 style={{ marginTop: 0 }}>{selectedJob.title}</h2>
+              <button style={styles.lightButton} onClick={() => setSelectedJob(null)}>Close</button>
+            </div>
+            <strong>{selectedJob.company}</strong>
+            <p style={styles.muted}>{selectedJob.location} · {selectedJob.typeLabel} · {selectedJob.salaryLabel}</p>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{selectedJob.description}</p>
+            <p><strong>Eligibility:</strong> {selectedJob.eligibility || "Please check the job description."}</p>
+            <p><strong>Skills:</strong> {(selectedJob.skills || []).join(", ") || "Not specified"}</p>
+            {session && profile?.role === "candidate" ? (
+              <>
+                <label style={styles.label}>Short note to the employer (optional)
+                  <textarea style={{ ...styles.field, minHeight: 90 }} value={coverNote} onChange={e => setCoverNote(e.target.value)} />
+                </label>
+                <button style={styles.button} disabled={busy} onClick={submitApplication}>{busy ? "Submitting…" : "Submit application"}</button>
+              </>
+            ) : (
+              <button style={styles.button} onClick={() => { setSelectedJob(null); setAuthMode("login"); setShowAuth(true); }}>
+                Sign in as a candidate to apply
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showPost && (
+        <div style={overlayStyle} onClick={() => !busy && setShowPost(false)}>
+          <form style={modalStyle} onSubmit={submitJob} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ marginTop: 0 }}>Post a job</h2>
+              <button type="button" style={styles.lightButton} onClick={() => setShowPost(false)}>Close</button>
+            </div>
+            {field("Job title", "title", jobForm.title, v => setJobForm(o => ({ ...o, title: v })), "text", true)}
+            <label style={styles.label}>Description *
+              <textarea style={{ ...styles.field, minHeight: 110 }} required value={jobForm.description} onChange={e => setJobForm(o => ({ ...o, description: e.target.value }))} />
+            </label>
+            <div style={styles.grid}>
+              <label style={styles.label}>Category
+                <select style={styles.field} value={jobForm.category} onChange={e => setJobForm(o => ({ ...o, category: e.target.value }))}>
+                  <option>Engineering</option><option>IT & Software</option><option>Data & Analytics</option><option>Business & Management</option><option>Customer Support</option><option>Other</option>
+                </select>
+              </label>
+              <label style={styles.label}>Opportunity type
+                <select style={styles.field} value={jobForm.opportunity_type} onChange={e => setJobForm(o => ({ ...o, opportunity_type: e.target.value }))}>
+                  <option value="full_time">Full-time</option><option value="part_time">Part-time</option><option value="internship">Internship</option><option value="contract">Contract</option><option value="apprenticeship">Apprenticeship</option>
+                </select>
+              </label>
+              <label style={styles.label}>Experience level
+                <input style={styles.field} value={jobForm.experience_level} onChange={e => setJobForm(o => ({ ...o, experience_level: e.target.value }))} />
+              </label>
+              <label style={styles.label}>Work mode
+                <select style={styles.field} value={jobForm.work_mode} onChange={e => setJobForm(o => ({ ...o, work_mode: e.target.value }))}>
+                  <option value="onsite">On-site</option><option value="hybrid">Hybrid</option><option value="remote">Remote</option>
+                </select>
+              </label>
+              <label style={styles.label}>City
+                <input style={styles.field} value={jobForm.location_city} onChange={e => setJobForm(o => ({ ...o, location_city: e.target.value }))} />
+              </label>
+              <label style={styles.label}>State
+                <input style={styles.field} value={jobForm.location_state} onChange={e => setJobForm(o => ({ ...o, location_state: e.target.value }))} />
+              </label>
+              <label style={styles.label}>Minimum salary
+                <input style={styles.field} type="number" min="0" value={jobForm.salary_min} onChange={e => setJobForm(o => ({ ...o, salary_min: e.target.value }))} />
+              </label>
+              <label style={styles.label}>Maximum salary
+                <input style={styles.field} type="number" min="0" value={jobForm.salary_max} onChange={e => setJobForm(o => ({ ...o, salary_max: e.target.value }))} />
+              </label>
+              <label style={styles.label}>Salary period
+                <select style={styles.field} value={jobForm.salary_period} onChange={e => setJobForm(o => ({ ...o, salary_period: e.target.value }))}>
+                  <option value="LPA">LPA</option><option value="month">Per month</option><option value="year">Per year</option>
+                </select>
+              </label>
+              <label style={styles.label}>Application deadline
+                <input style={styles.field} type="date" value={jobForm.application_deadline} onChange={e => setJobForm(o => ({ ...o, application_deadline: e.target.value }))} />
+              </label>
+            </div>
+            <label style={styles.label}>Skills (comma separated)
+              <input style={styles.field} value={jobForm.skills} onChange={e => setJobForm(o => ({ ...o, skills: e.target.value }))} placeholder="Python, Communication, Excel" />
+            </label>
+            <label style={styles.label}>Eligibility (optional)
+              <textarea style={{ ...styles.field, minHeight: 70 }} value={jobForm.eligibility} onChange={e => setJobForm(o => ({ ...o, eligibility: e.target.value }))} />
+            </label>
+            <button style={styles.button} type="submit" disabled={busy}>{busy ? "Submitting…" : "Submit job for review"}</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const overlayStyle = {
+  position: "fixed", inset: 0, background: "rgba(10,25,45,.62)",
+  display: "flex", alignItems: "center", justifyContent: "center",
+  padding: 14, zIndex: 1000, overflowY: "auto"
+};
+const modalStyle = {
+  background: "#fff", color: "#172033", borderRadius: 14, padding: 22,
+  width: "100%", maxWidth: 620, maxHeight: "92vh", overflowY: "auto",
+  boxSizing: "border-box", boxShadow: "0 12px 45px rgba(0,0,0,.25)"
+};
