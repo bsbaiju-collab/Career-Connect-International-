@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 
+import AdminDashboard from "./AdminDashboard";
 const styles = {
   page: { minHeight: "100vh", background: "#f4f7fb", color: "#172033", fontFamily: "Arial, sans-serif" },
   header: { background: "#102b4e", color: "#fff", padding: "18px 5%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" },
