@@ -287,6 +287,9 @@ export default function App() {
         onChange={e => onChange(e.target.value)} />
     </label>
   );
+if (!loading && profile?.role === "admin") {
+    return <AdminDashboard onSignOut={() => supabase.auth.signOut()} />;
+   
 
   return (
     <div style={styles.page}>
