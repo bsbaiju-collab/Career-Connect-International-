@@ -61,8 +61,10 @@ const sectionTitle = { color: "#173d68", marginTop: 26 };
 export default function AdminDashboard({ onSignOut }) {
   const [jobs, setJobs] = useState([]);
   const [employers, setEmployers] = useState([]);
+  const [candidates, setCandidates] = useState([]);
   const [loadingJobs, setLoadingJobs] = useState(true);
   const [loadingEmployers, setLoadingEmployers] = useState(true);
+  const [loadingCandidates, setLoadingCandidates] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -125,8 +127,48 @@ export default function AdminDashboard({ onSignOut }) {
     setLoadingEmployers(false);
   }
 
+  async function loadCandidates() {
+    setLoadingCandidates(true);
+    setError("");
+
+    const { data: candidateRows, error: candidateError } = await supabase
+      .from("candidate_profiles")
+      .select("*")
+      .order("updated_at", { ascending: false });
+
+    if (candidateError) {
+      setError(`Candidates: ${candidateError.message}`);
+      setCandidates([]);
+      setLoadingCandidates(false);
+      return;
+    }
+
+    const rows = candidateRows || [];
+    const candidateIds = [...new Set(rows.map((item) => item.user_id).filter(Boolean))];
+    let profileMap = {};
+
+    if (candidateIds.length > 0) {
+      const { data: profiles, error: profileError } = await supabase
+        .from("profiles")
+        .select("id, full_name, phone, city, state, created_at")
+        .in("id", candidateIds);
+
+      if (profileError) {
+        setError(`Candidate contact details: ${profileError.message}`);
+      } else {
+        profileMap = Object.fromEntries((profiles || []).map((profile) => [profile.id, profile]));
+      }
+    }
+
+    setCandidates(rows.map((item) => ({
+      ...item,
+      profile: profileMap[item.user_id] || null
+    })));
+    setLoadingCandidates(false);
+  }
+
   async function refreshAll() {
-    await Promise.all([loadPendingJobs(), loadPendingEmployers()]);
+    await Promise.all([loadPendingJobs(), loadPendingEmployers(), loadCandidates()]);
   }
 
   useEffect(() => {
@@ -211,9 +253,15 @@ export default function AdminDashboard({ onSignOut }) {
         <section style={panel}>
           <h1 style={{ marginTop: 0, color: "#173d68" }}>Admin Dashboard</h1>
           <p style={muted}>
-            Verify employer organisations and review vacancies before publication.
+            Manage candidates, verify employer organisations and review vacancies before publication.
           </p>
           <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 800, color: "#1769aa" }}>
+                {candidates.length}
+              </div>
+              <div style={muted}>Candidate profiles</div>
+            </div>
             <div>
               <div style={{ fontSize: 28, fontWeight: 800, color: "#1769aa" }}>
                 {employers.length}
@@ -234,6 +282,45 @@ export default function AdminDashboard({ onSignOut }) {
 
         {error && <div style={errorStyle}>{error}</div>}
         {message && <div style={successStyle}>{message}</div>}
+
+        <h2 style={sectionTitle}>Candidate Management</h2>
+        {loadingCandidates ? (
+          <section style={panel}>Loading candidate profiles…</section>
+        ) : candidates.length === 0 ? (
+          <section style={panel}>No candidate profiles are currently available.</section>
+        ) : (
+          candidates.map((candidate) => (
+            <article key={candidate.user_id} style={panel}>
+              <h3 style={{ marginTop: 0, color: "#173d68" }}>
+                {candidate.profile?.full_name || "Name not available"}
+              </h3>
+              <p><strong>Phone:</strong> {candidate.profile?.phone || "Not provided"}</p>
+              <p><strong>Location:</strong> {[candidate.profile?.city, candidate.profile?.state].filter(Boolean).join(", ") || "Not provided"}</p>
+              <p><strong>Headline:</strong> {candidate.headline || "Not provided"}</p>
+              <p><strong>Education:</strong> {candidate.education || "Not provided"}</p>
+              <p><strong>Discipline:</strong> {candidate.discipline || "Not provided"}</p>
+              <p><strong>Graduation year:</strong> {candidate.graduation_year || "Not provided"}</p>
+              <p><strong>Skills:</strong> {(candidate.skills || []).join(", ") || "Not provided"}</p>
+              <p><strong>Profile visibility:</strong> {candidate.profile_visibility || "Not specified"}</p>
+              <p>
+                <strong>Resume sharing consent:</strong>{" "}
+                {candidate.resume_sharing_consent === true
+                  ? "Granted"
+                  : candidate.resume_sharing_consent === false
+                    ? "Not granted"
+                    : "Not specified"}
+              </p>
+              <p style={muted}>
+                Profile updated: {candidate.updated_at
+                  ? new Date(candidate.updated_at).toLocaleString()
+                  : "Date unavailable"}
+              </p>
+              <p style={muted}>
+                Resume files are not opened or downloaded from this admin view.
+              </p>
+            </article>
+          ))
+        )}
 
         <h2 style={sectionTitle}>Pending employer verification</h2>
         {loadingEmployers ? (
