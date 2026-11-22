@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "./supabaseClient";
 
 const page = {
@@ -57,6 +57,23 @@ const successStyle = {
   marginBottom: 14
 };
 const sectionTitle = { color: "#173d68", marginTop: 26 };
+const fieldStyle = {
+  width: "100%",
+  boxSizing: "border-box",
+  padding: "11px 12px",
+  border: "1px solid #cbd5e1",
+  borderRadius: 8,
+  background: "#fff",
+  color: "#172033",
+  fontSize: 14
+};
+const labelStyle = {
+  display: "block",
+  fontSize: 13,
+  fontWeight: 700,
+  color: "#334155",
+  marginBottom: 6
+};
 
 export default function AdminDashboard({ onSignOut }) {
   const [jobs, setJobs] = useState([]);
@@ -68,6 +85,11 @@ export default function AdminDashboard({ onSignOut }) {
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+
+  // Candidate management filters
+  const [candidateSearch, setCandidateSearch] = useState("");
+  const [disciplineFilter, setDisciplineFilter] = useState("all");
+  const [graduationYearFilter, setGraduationYearFilter] = useState("all");
 
   async function loadPendingJobs() {
     setLoadingJobs(true);
@@ -237,6 +259,43 @@ export default function AdminDashboard({ onSignOut }) {
     setBusyId("");
   }
 
+  const disciplineOptions = useMemo(() => {
+    return [...new Set(candidates.map((candidate) => candidate.discipline).filter(Boolean))]
+      .sort((a, b) => String(a).localeCompare(String(b)));
+  }, [candidates]);
+
+  const graduationYearOptions = useMemo(() => {
+    return [...new Set(candidates.map((candidate) => candidate.graduation_year).filter(Boolean))]
+      .sort((a, b) => Number(b) - Number(a));
+  }, [candidates]);
+
+  const filteredCandidates = useMemo(() => {
+    const term = candidateSearch.trim().toLowerCase();
+
+    return candidates.filter((candidate) => {
+      const searchableText = [
+        candidate.profile?.full_name,
+        candidate.profile?.phone,
+        candidate.profile?.city,
+        candidate.profile?.state,
+        candidate.headline,
+        candidate.education,
+        candidate.discipline,
+        candidate.graduation_year,
+        ...(candidate.skills || [])
+      ].filter(Boolean).join(" ").toLowerCase();
+
+      const matchesSearch = !term || searchableText.includes(term);
+      const matchesDiscipline =
+        disciplineFilter === "all" || candidate.discipline === disciplineFilter;
+      const matchesYear =
+        graduationYearFilter === "all" ||
+        String(candidate.graduation_year) === graduationYearFilter;
+
+      return matchesSearch && matchesDiscipline && matchesYear;
+    });
+  }, [candidates, candidateSearch, disciplineFilter, graduationYearFilter]);
+
   return (
     <div style={page}>
       <header style={header}>
@@ -284,12 +343,84 @@ export default function AdminDashboard({ onSignOut }) {
         {message && <div style={successStyle}>{message}</div>}
 
         <h2 style={sectionTitle}>Candidate Management</h2>
+        <section style={panel}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+            gap: 12
+          }}>
+            <div>
+              <label style={labelStyle} htmlFor="candidate-search">Search candidates</label>
+              <input
+                id="candidate-search"
+                style={fieldStyle}
+                value={candidateSearch}
+                onChange={(event) => setCandidateSearch(event.target.value)}
+                placeholder="Name, phone, education or skills"
+              />
+            </div>
+            <div>
+              <label style={labelStyle} htmlFor="candidate-discipline">Filter by discipline</label>
+              <select
+                id="candidate-discipline"
+                style={fieldStyle}
+                value={disciplineFilter}
+                onChange={(event) => setDisciplineFilter(event.target.value)}
+              >
+                <option value="all">All disciplines</option>
+                {disciplineOptions.map((discipline) => (
+                  <option key={discipline} value={discipline}>{discipline}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle} htmlFor="candidate-year">Filter by graduation year</label>
+              <select
+                id="candidate-year"
+                style={fieldStyle}
+                value={graduationYearFilter}
+                onChange={(event) => setGraduationYearFilter(event.target.value)}
+              >
+                <option value="all">All graduation years</option>
+                {graduationYearOptions.map((year) => (
+                  <option key={year} value={String(year)}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+            marginTop: 14
+          }}>
+            <span style={muted}>
+              Showing {filteredCandidates.length} of {candidates.length} candidate profiles
+            </span>
+            <button
+              type="button"
+              style={secondary}
+              onClick={() => {
+                setCandidateSearch("");
+                setDisciplineFilter("all");
+                setGraduationYearFilter("all");
+              }}
+            >
+              Clear filters
+            </button>
+          </div>
+        </section>
+
         {loadingCandidates ? (
           <section style={panel}>Loading candidate profiles…</section>
         ) : candidates.length === 0 ? (
           <section style={panel}>No candidate profiles are currently available.</section>
+        ) : filteredCandidates.length === 0 ? (
+          <section style={panel}>No candidates match the selected search or filters.</section>
         ) : (
-          candidates.map((candidate) => (
+          filteredCandidates.map((candidate) => (
             <article key={candidate.user_id} style={panel}>
               <h3 style={{ marginTop: 0, color: "#173d68" }}>
                 {candidate.profile?.full_name || "Name not available"}
@@ -301,7 +432,14 @@ export default function AdminDashboard({ onSignOut }) {
               <p><strong>Discipline:</strong> {candidate.discipline || "Not provided"}</p>
               <p><strong>Graduation year:</strong> {candidate.graduation_year || "Not provided"}</p>
               <p><strong>Skills:</strong> {(candidate.skills || []).join(", ") || "Not provided"}</p>
-              <p><strong>Profile visibility:</strong> {candidate.profile_visibility || "Not specified"}</p>
+              <p>
+                <strong>Profile visibility:</strong>{" "}
+                {candidate.profile_visibility === "employer_visible"
+                  ? "Visible to employers"
+                  : candidate.profile_visibility === "private"
+                    ? "Private"
+                    : candidate.profile_visibility || "Not specified"}
+              </p>
               <p>
                 <strong>Resume sharing consent:</strong>{" "}
                 {candidate.resume_sharing_consent === true
